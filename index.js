@@ -223,7 +223,7 @@ async function run() {
       }
     });
 
-    app.delete("/my-requests/:id", async (req, res) => {
+    app.delete("/my-requests/:id", validateToken, async (req, res) => {
       try {
         const { id } = req.params;
 
