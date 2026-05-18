@@ -4,7 +4,7 @@ const dotenv = require("dotenv");
 dotenv.config();
 const cors = require("cors");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
-const { createRemoteJWKSet } = require("jose-cjs");
+const { createRemoteJWKSet, jwtVerify } = require("jose-cjs");
 
 const port = process.env.PORT || 5001;
 
@@ -24,7 +24,23 @@ const client = new MongoClient(uri, {
 const JWKS = createRemoteJWKSet(new URL("http://localhost:3000/api/auth/jwks"));
 console.log(JWKS, "hi ami jwks");
 
-
+async function validateToken(req, res, next) {
+  const authHeaders = req.headers.authorization;
+  if(!authHeaders){
+    return res.status(401).json({message: 'unauthorized'})
+  }
+  const token = authHeaders?.split(' ')[1];
+  console.log(token,'hi ami token ashci');
+  try {
+    
+    const { payload } = await jwtVerify(token, JWKS)
+    console.log(payload);
+    
+  } catch (error) {
+    console.error('Token validation failed:', error)
+   return res.status(403).json({message: 'Forbidden'})
+  }
+}
 
 async function run() {
   try {
@@ -75,7 +91,7 @@ async function run() {
       }
     });
 
-    app.get("/all-pets/:id", async (req, res) => {
+    app.get("/all-pets/:id", validateToken, async (req, res) => {
       const { id } = req.params;
 
       if (!ObjectId.isValid(id)) {
