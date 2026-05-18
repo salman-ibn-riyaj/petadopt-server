@@ -4,6 +4,7 @@ const dotenv = require("dotenv");
 dotenv.config();
 const cors = require("cors");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const { createRemoteJWKSet } = require("jose-cjs");
 
 const port = process.env.PORT || 5001;
 
@@ -20,6 +21,11 @@ const client = new MongoClient(uri, {
   },
 });
 
+const JWKS = createRemoteJWKSet(new URL("http://localhost:3000/api/auth/jwks"));
+console.log(JWKS, "hi ami jwks");
+
+
+
 async function run() {
   try {
     await client.connect();
@@ -34,8 +40,39 @@ async function run() {
     });
 
     app.get("/all-pets", async (req, res) => {
-      const result = await petsCollection.find().toArray();
-      res.send(result);
+      try {
+        const { search, species, sort } = req.query;
+
+        let query = {};
+
+        if (search) {
+          query.name = { $regex: search, $options: "i" };
+        }
+
+        if (species && species !== "All") {
+          query.species = species;
+        }
+
+        let sortOption = {};
+        if (sort === "low-to-high") {
+          sortOption.adoptionFee = 1;
+        } else if (sort === "high-to-low") {
+          sortOption.adoptionFee = -1;
+        }
+
+        const result = await petsCollection
+          .find(query)
+          .sort(sortOption)
+          .toArray();
+
+        res.send(result);
+      } catch (error) {
+        console.error("Error in GET /all-pets:", error);
+        res.status(500).send({
+          success: false,
+          message: "Internal Server Error",
+        });
+      }
     });
 
     app.get("/all-pets/:id", async (req, res) => {
@@ -68,7 +105,7 @@ async function run() {
           return res.status(409).send({
             success: false,
             message:
-              "You have already submitted an adoption request for this pet! 🐾",
+              "You have already submitted an adoption request for this pet!",
           });
         }
 
@@ -89,32 +126,35 @@ async function run() {
       }
     });
 
- 
     app.post("/add-pet", async (req, res) => {
       try {
         const newPet = req.body;
 
-    
-        if (!newPet.name || !newPet.species || !newPet.image || !newPet.description) {
-          return res.status(400).send({ 
-            success: false, 
-            message: "Required fields are missing! (Name, Species, Image, and Description) " 
+        if (
+          !newPet.name ||
+          !newPet.species ||
+          !newPet.image ||
+          !newPet.description
+        ) {
+          return res.status(400).send({
+            success: false,
+            message:
+              "Required fields are missing! (Name, Species, Image, and Description) ",
           });
         }
 
-        
         const result = await petsCollection.insertOne(newPet);
-        
+
         res.status(201).send({
           success: true,
           message: "Pet listed successfully!",
-          insertedId: result.insertedId
+          insertedId: result.insertedId,
         });
       } catch (error) {
         console.error("Error in POST /add-pet:", error);
-        res.status(500).send({ 
-          success: false, 
-          message: "Internal Server Error" 
+        res.status(500).send({
+          success: false,
+          message: "Internal Server Error",
         });
       }
     });
@@ -123,12 +163,10 @@ async function run() {
       try {
         const { email } = req.query;
         if (!email) {
-          return res
-            .status(400)
-            .send({
-              success: false,
-              message: "Email query parameter is required",
-            });
+          return res.status(400).send({
+            success: false,
+            message: "Email query parameter is required",
+          });
         }
         const result = await myRequestCollection
           .find({ userEmail: email })
@@ -143,12 +181,10 @@ async function run() {
       }
     });
 
-    
     app.get("/my-listings", async (req, res) => {
       try {
         const { email } = req.query;
-        
-    
+
         if (!email) {
           return res.status(400).send({
             success: false,
@@ -156,15 +192,16 @@ async function run() {
           });
         }
 
-    
-        const result = await petsCollection.find({ ownerEmail: email }).toArray();
+        const result = await petsCollection
+          .find({ ownerEmail: email })
+          .toArray();
 
         res.send(result);
       } catch (error) {
         console.error("Error in GET /my-listings:", error);
-        res.status(500).send({ 
-          success: false, 
-          message: "Internal Server Error" 
+        res.status(500).send({
+          success: false,
+          message: "Internal Server Error",
         });
       }
     });
@@ -201,19 +238,20 @@ async function run() {
       }
     });
 
- 
     app.delete("/add-pet/:id", async (req, res) => {
       try {
         const { id } = req.params;
 
         if (!ObjectId.isValid(id)) {
-          return res.status(400).send({ 
-            success: false, 
-            message: "Invalid pet id" 
+          return res.status(400).send({
+            success: false,
+            message: "Invalid pet id",
           });
         }
 
-        const result = await petsCollection.deleteOne({ _id: new ObjectId(id) });
+        const result = await petsCollection.deleteOne({
+          _id: new ObjectId(id),
+        });
 
         if (result.deletedCount === 1) {
           res.send({
@@ -221,39 +259,34 @@ async function run() {
             message: "Pet listing deleted successfully! 🐾",
           });
         } else {
-          res.status(404).send({ 
-            success: false, 
-            message: "Pet listing not found" 
+          res.status(404).send({
+            success: false,
+            message: "Pet listing not found",
           });
         }
       } catch (error) {
         console.error("Error in DELETE /add-pet/:id:", error);
-        res.status(500).send({ 
-          success: false, 
-          message: "Internal Server Error" 
+        res.status(500).send({
+          success: false,
+          message: "Internal Server Error",
         });
       }
     });
 
-    // ========================================================
-    // নির্দিষ্ট একটি পেটের তথ্য আপডেট করার জন্য PUT API
-    // ========================================================
     app.put("/add-pet/:id", async (req, res) => {
       try {
         const { id } = req.params;
         const updatedPet = req.body;
 
         if (!ObjectId.isValid(id)) {
-          return res.status(400).send({ 
-            success: false, 
-            message: "Invalid pet id" 
+          return res.status(400).send({
+            success: false,
+            message: "Invalid pet id",
           });
         }
 
-     
         const filter = { _id: new ObjectId(id) };
-        
-     
+
         const updateDoc = {
           $set: {
             name: updatedPet.name,
@@ -278,16 +311,16 @@ async function run() {
             message: "Pet information updated successfully! 🎉",
           });
         } else {
-          res.status(404).send({ 
-            success: false, 
-            message: "Pet listing not found" 
+          res.status(404).send({
+            success: false,
+            message: "Pet listing not found",
           });
         }
       } catch (error) {
         console.error("Error in PUT /add-pet/:id:", error);
-        res.status(500).send({ 
-          success: false, 
-          message: "Internal Server Error" 
+        res.status(500).send({
+          success: false,
+          message: "Internal Server Error",
         });
       }
     });
