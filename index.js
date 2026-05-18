@@ -25,7 +25,7 @@ const JWKS = createRemoteJWKSet(new URL("http://localhost:3000/api/auth/jwks"));
 console.log(JWKS, "hi ami jwks");
 
 async function validateToken(req, res, next) {
-  const authHeaders = req.headers.authorization;
+  const authHeaders = req?.headers.authorization;
   if(!authHeaders){
     return res.status(401).json({message: 'unauthorized'})
   }
@@ -35,6 +35,7 @@ async function validateToken(req, res, next) {
     
     const { payload } = await jwtVerify(token, JWKS)
     console.log(payload);
+    next()
     
   } catch (error) {
     console.error('Token validation failed:', error)
@@ -142,7 +143,7 @@ async function run() {
       }
     });
 
-    app.post("/add-pet", async (req, res) => {
+    app.post("/add-pet",validateToken, async (req, res) => {
       try {
         const newPet = req.body;
 
