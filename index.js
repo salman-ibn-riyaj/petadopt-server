@@ -290,7 +290,7 @@ async function run() {
       }
     });
 
-    app.put("/add-pet/:id", async (req, res) => {
+    app.put("/add-pet/:id", validateToken, async (req, res) => {
       try {
         const { id } = req.params;
         const updatedPet = req.body;
