@@ -89,6 +89,38 @@ async function run() {
       }
     });
 
+    // ========================================================
+    // নতুন পেট লিস্ট অ্যাড করার জন্য POST API
+    // ========================================================
+    app.post("/add-pet", async (req, res) => {
+      try {
+        const newPet = req.body;
+
+        // সেফটি চেক: নাম, স্পিসিস, ইমেজ এবং ডেসক্রিপশন যেন ফাঁকা না থাকে
+        if (!newPet.name || !newPet.species || !newPet.image || !newPet.description) {
+          return res.status(400).send({ 
+            success: false, 
+            message: "Required fields are missing! (Name, Species, Image, and Description) 🐾" 
+          });
+        }
+
+        // ডাটাবেজের pets কালেকশনে নতুন পেটের ডাটা ইনসার্ট করা
+        const result = await petsCollection.insertOne(newPet);
+        
+        res.status(201).send({
+          success: true,
+          message: "Pet listed successfully! 🎉",
+          insertedId: result.insertedId
+        });
+      } catch (error) {
+        console.error("Error in POST /add-pet:", error);
+        res.status(500).send({ 
+          success: false, 
+          message: "Internal Server Error" 
+        });
+      }
+    });
+
     app.get("/my-requests", async (req, res) => {
       try {
         const { email } = req.query;
