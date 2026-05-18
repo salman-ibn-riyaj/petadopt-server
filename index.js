@@ -89,27 +89,25 @@ async function run() {
       }
     });
 
-    // ========================================================
-    // নতুন পেট লিস্ট অ্যাড করার জন্য POST API
-    // ========================================================
+ 
     app.post("/add-pet", async (req, res) => {
       try {
         const newPet = req.body;
 
-        // সেফটি চেক: নাম, স্পিসিস, ইমেজ এবং ডেসক্রিপশন যেন ফাঁকা না থাকে
+    
         if (!newPet.name || !newPet.species || !newPet.image || !newPet.description) {
           return res.status(400).send({ 
             success: false, 
-            message: "Required fields are missing! (Name, Species, Image, and Description) 🐾" 
+            message: "Required fields are missing! (Name, Species, Image, and Description) " 
           });
         }
 
-        // ডাটাবেজের pets কালেকশনে নতুন পেটের ডাটা ইনসার্ট করা
+        
         const result = await petsCollection.insertOne(newPet);
         
         res.status(201).send({
           success: true,
-          message: "Pet listed successfully! 🎉",
+          message: "Pet listed successfully!",
           insertedId: result.insertedId
         });
       } catch (error) {
@@ -145,6 +143,32 @@ async function run() {
       }
     });
 
+    
+    app.get("/my-listings", async (req, res) => {
+      try {
+        const { email } = req.query;
+        
+    
+        if (!email) {
+          return res.status(400).send({
+            success: false,
+            message: "Email query parameter is required",
+          });
+        }
+
+    
+        const result = await petsCollection.find({ ownerEmail: email }).toArray();
+
+        res.send(result);
+      } catch (error) {
+        console.error("Error in GET /my-listings:", error);
+        res.status(500).send({ 
+          success: false, 
+          message: "Internal Server Error" 
+        });
+      }
+    });
+
     app.delete("/my-requests/:id", async (req, res) => {
       try {
         const { id } = req.params;
@@ -174,6 +198,97 @@ async function run() {
         res
           .status(500)
           .send({ success: false, message: "Internal Server Error" });
+      }
+    });
+
+ 
+    app.delete("/add-pet/:id", async (req, res) => {
+      try {
+        const { id } = req.params;
+
+        if (!ObjectId.isValid(id)) {
+          return res.status(400).send({ 
+            success: false, 
+            message: "Invalid pet id" 
+          });
+        }
+
+        const result = await petsCollection.deleteOne({ _id: new ObjectId(id) });
+
+        if (result.deletedCount === 1) {
+          res.send({
+            success: true,
+            message: "Pet listing deleted successfully! 🐾",
+          });
+        } else {
+          res.status(404).send({ 
+            success: false, 
+            message: "Pet listing not found" 
+          });
+        }
+      } catch (error) {
+        console.error("Error in DELETE /add-pet/:id:", error);
+        res.status(500).send({ 
+          success: false, 
+          message: "Internal Server Error" 
+        });
+      }
+    });
+
+    // ========================================================
+    // নির্দিষ্ট একটি পেটের তথ্য আপডেট করার জন্য PUT API
+    // ========================================================
+    app.put("/add-pet/:id", async (req, res) => {
+      try {
+        const { id } = req.params;
+        const updatedPet = req.body;
+
+        if (!ObjectId.isValid(id)) {
+          return res.status(400).send({ 
+            success: false, 
+            message: "Invalid pet id" 
+          });
+        }
+
+     
+        const filter = { _id: new ObjectId(id) };
+        
+     
+        const updateDoc = {
+          $set: {
+            name: updatedPet.name,
+            species: updatedPet.species,
+            breed: updatedPet.breed,
+            age: updatedPet.age,
+            gender: updatedPet.gender,
+            vaccinationStatus: updatedPet.vaccinationStatus,
+            image: updatedPet.image,
+            healthStatus: updatedPet.healthStatus,
+            location: updatedPet.location,
+            adoptionFee: Number(updatedPet.adoptionFee) || 0,
+            description: updatedPet.description,
+          },
+        };
+
+        const result = await petsCollection.updateOne(filter, updateDoc);
+
+        if (result.matchedCount === 1) {
+          res.send({
+            success: true,
+            message: "Pet information updated successfully! 🎉",
+          });
+        } else {
+          res.status(404).send({ 
+            success: false, 
+            message: "Pet listing not found" 
+          });
+        }
+      } catch (error) {
+        console.error("Error in PUT /add-pet/:id:", error);
+        res.status(500).send({ 
+          success: false, 
+          message: "Internal Server Error" 
+        });
       }
     });
 
