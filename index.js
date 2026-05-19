@@ -21,7 +21,7 @@ const client = new MongoClient(uri, {
   },
 });
 
-const JWKS = createRemoteJWKSet(new URL("http://localhost:3000/api/auth/jwks"));
+const JWKS = createRemoteJWKSet(new URL(`${process.env.CLIENT_SIDE_URL}/api/auth/jwks`));
 console.log(JWKS, "hi ami jwks");
 
 async function validateToken(req, res, next) {
@@ -325,7 +325,7 @@ async function run() {
         if (result.matchedCount === 1) {
           res.send({
             success: true,
-            message: "Pet information updated successfully! 🎉",
+            message: "Pet information updated successfully!",
           });
         } else {
           res.status(404).send({
