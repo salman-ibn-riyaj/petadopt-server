@@ -21,25 +21,25 @@ const client = new MongoClient(uri, {
   },
 });
 
-const JWKS = createRemoteJWKSet(new URL(`${process.env.CLIENT_SIDE_URL}/api/auth/jwks`));
-console.log(JWKS, "hi ami jwks");
+const JWKS = createRemoteJWKSet(
+  new URL(`${process.env.CLIENT_SIDE_URL}/api/auth/jwks`),
+);
 
 async function validateToken(req, res, next) {
+  console.log(JWKS, "hi ami jwks");
   const authHeaders = req?.headers.authorization;
-  if(!authHeaders){
-    return res.status(401).json({message: 'unauthorized'})
+  if (!authHeaders) {
+    return res.status(401).json({ message: "unauthorized" });
   }
-  const token = authHeaders?.split(' ')[1];
-  console.log(token,'hi ami token ashci');
+  const token = authHeaders?.split(" ")[1];
+  console.log(token, "hi ami token ashci");
   try {
-    
-    const { payload } = await jwtVerify(token, JWKS)
+    const { payload } = await jwtVerify(token, JWKS);
     console.log(payload);
-    next()
-    
+    next();
   } catch (error) {
-    console.error('Token validation failed:', error)
-   return res.status(403).json({message: 'Forbidden'})
+    console.error("Token validation failed:", error);
+    return res.status(403).json({ message: "Forbidden" });
   }
 }
 
@@ -143,7 +143,7 @@ async function run() {
       }
     });
 
-    app.post("/add-pet",validateToken, async (req, res) => {
+    app.post("/add-pet", validateToken, async (req, res) => {
       try {
         const newPet = req.body;
 
