@@ -75,15 +75,50 @@ app.get("/all-pets/:id", validateToken, async (req, res) => {
 app.post("/adopt-request", async (req, res) => {
   try {
     const db = await connectDB();
-    const requestData = req.body;
+    const requestData = req.body; 
     let petObjectId = requestData.petId;
-    if (requestData.petId && ObjectId.isValid(requestData.petId)) petObjectId = new ObjectId(requestData.petId);
-    const alreadyRequested = await db.collection("myRequests").findOne({ userEmail: requestData.userEmail, petId: petObjectId });
-    if (alreadyRequested) return res.status(409).send({ success: false, message: "You have already submitted an adoption request for this pet!" });
+    
+    if (requestData.petId && ObjectId.isValid(requestData.petId)) {
+      petObjectId = new ObjectId(requestData.petId);
+    }
+
+    const pet = await db.collection("pets").findOne({ _id: petObjectId });
+    if (!pet) {
+      return res.status(404).send({ success: false, message: "Pet not found!" });
+    }
+
+    if (pet.ownerEmail === requestData.userEmail) {
+      return res.status(403).send({ 
+        success: false, 
+        message: "You cannot submit an adoption request for your own listed pet!" 
+      });
+    }
+
+    const alreadyRequested = await db.collection("myRequests").findOne({ 
+      userEmail: requestData.userEmail, 
+      petId: petObjectId 
+    });
+    
+    if (alreadyRequested) {
+      return res.status(409).send({ 
+        success: false, 
+        message: "You have already submitted an adoption request for this pet!" 
+      });
+    }
+
     requestData.petId = petObjectId;
+    requestData.status = "pending"; 
+    
     const result = await db.collection("myRequests").insertOne(requestData);
-    res.status(201).send({ success: true, message: "Adoption request submitted successfully!", insertedId: result.insertedId });
+    
+    res.status(201).send({ 
+      success: true, 
+      message: "Adoption request submitted successfully!", 
+      insertedId: result.insertedId 
+    });
+
   } catch (error) {
+    console.error("Adopt request error:", error);
     res.status(500).send({ success: false, message: "Internal Server Error" });
   }
 });
@@ -101,7 +136,7 @@ app.post("/add-pet", validateToken, async (req, res) => {
   }
 });
 
-app.get("/my-requests", async (req, res) => {
+app.get("/my-requests", validateToken, async (req, res) => {
   try {
     const db = await connectDB();
     const { email } = req.query;
@@ -113,7 +148,7 @@ app.get("/my-requests", async (req, res) => {
   }
 });
 
-app.get("/my-listings", async (req, res) => {
+app.get("/my-listings", validateToken, async (req, res) => {
   try {
     const db = await connectDB();
     const { email } = req.query;
@@ -121,6 +156,43 @@ app.get("/my-listings", async (req, res) => {
     const result = await db.collection("pets").find({ ownerEmail: email }).toArray();
     res.send(result);
   } catch (error) {
+    res.status(500).send({ success: false, message: "Internal Server Error" });
+  }
+});
+
+
+app.patch("/my-requests/:id", validateToken, async (req, res) => {
+  try {
+    const db = await connectDB();
+    const { id } = req.params;
+    const { status } = req.body; 
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).send({ success: false, message: "Invalid id" });
+    }
+
+
+    const result = await db.collection("myRequests").updateOne(
+      { petId: new ObjectId(id), status: "pending" },
+      { $set: { status: status } }
+    );
+
+    if (result.matchedCount === 1) {
+      
+      if (status === "approved") {
+        await db.collection("pets").updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { adopted: true, status: "adopted" } }
+        );
+      }
+
+      return res.send({ success: true, message: `Request ${status} and pet status updated successfully!` });
+    } else {
+    
+      return res.status(404).send({ success: false, message: "No pending request found for this pet" });
+    }
+  } catch (error) {
+    console.error("Patch request error:", error);
     res.status(500).send({ success: false, message: "Internal Server Error" });
   }
 });
@@ -138,7 +210,7 @@ app.delete("/my-requests/:id", validateToken, async (req, res) => {
   }
 });
 
-app.delete("/add-pet/:id", async (req, res) => {
+app.delete("/add-pet/:id", validateToken, async (req, res) => {
   try {
     const db = await connectDB();
     const { id } = req.params;
