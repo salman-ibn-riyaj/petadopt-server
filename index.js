@@ -25,8 +25,10 @@ async function connectDB() {
   return client.db("petAdopt");
 }
 
+const JWKS = createRemoteJWKSet(new URL(`${process.env.CLIENT_SIDE_URL}/api/auth/jwks`));
+
 async function validateToken(req, res, next) {
-  const JWKS = createRemoteJWKSet(new URL(`${process.env.CLIENT_SIDE_URL}/api/auth/jwks`));
+  
   const authHeaders = req?.headers.authorization;
   if (!authHeaders) return res.status(401).json({ message: "unauthorized" });
   const token = authHeaders?.split(" ")[1];
@@ -94,6 +96,7 @@ app.post("/adopt-request", async (req, res) => {
       });
     }
 
+    
     const alreadyRequested = await db.collection("myRequests").findOne({ 
       userEmail: requestData.userEmail, 
       petId: petObjectId 
